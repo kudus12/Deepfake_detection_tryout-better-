@@ -1,0 +1,55 @@
+<!-- templates/index.html -->
+<!-- Week 6: My Flask UI for uploading a video and showing Real/Fake prediction -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deepfake Detection</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+  <div class="container">
+    <h1>Deepfake Detection</h1>
+    <p class="subtitle">Upload a video and my model will predict if it is <b>Real</b> or <b>Fake</b>.</p>
+
+    <!-- Upload Form -->
+    <form class="card" action="/predict" method="POST" enctype="multipart/form-data">
+      <label class="label">Choose a video file (mp4 recommended):</label>
+      <input class="file" type="file" name="file" accept="video/*" required />
+
+      <button class="btn" type="submit">Predict</button>
+    </form>
+
+    <!-- Error message -->
+    {% if error %}
+      <div class="result error">
+        <h2>Error</h2>
+        <p>{{ error }}</p>
+      </div>
+    {% endif %}
+
+    <!-- Prediction result -->
+    {% if prediction %}
+      <div class="result">
+        <h2>Result</h2>
+
+        <p><b>File:</b> {{ filename }}</p>
+        <p><b>Prediction:</b> <span class="tag">{{ prediction }}</span></p>
+        <p><b>Confidence:</b> {{ confidence }}%</p>
+
+        <hr />
+
+        <p><b>Real probability:</b> {{ prob_real }}%</p>
+        <p><b>Fake probability:</b> {{ prob_fake }}%</p>
+
+        <p class="note">
+          Note: This is a student project model trained from scratch. Results depend on video quality and content.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>

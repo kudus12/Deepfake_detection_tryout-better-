@@ -1,0 +1,41 @@
+# --------------------
+# Models (VERY IMPORTANT)
+# --------------------
+*.pth
+
+# --------------------
+# Dataset (too big)
+# --------------------
+Dataset/
+Face2Face/
+FaceSwap/
+
+# --------------------
+# Generated / temp files
+# --------------------
+uploads/
+debug_frames/
+saved_keyframes_inference_tryout/
+
+# --------------------
+# Test outputs
+# --------------------
+test_results/
+*.xlsx
+*.csv
+
+# --------------------
+# System / cache
+# --------------------
+__pycache__/
+*.pyc
+
+# --------------------
+# VS Code
+# --------------------
+.vscode/
+
+# --------------------
+# Other
+# --------------------
+*.log
