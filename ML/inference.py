@@ -1,6 +1,3 @@
-# ML/inference.py
-# Try-out inference for lecturer experiment
-
 import os
 import cv2
 import torch
@@ -87,7 +84,7 @@ def video_to_tensor(
     face_size=224,
     scan_frames=40,
     save_keyframes=True,
-    keyframe_dir=r"C:\Users\kudus\Desktop\try out\saved_keyframes_inference_tryout"
+    keyframe_dir=None
 ):
     cap = cv2.VideoCapture(video_path)
 
@@ -118,15 +115,26 @@ def video_to_tensor(
     selected = candidates[:frame_limit]
 
     frames = []
-    base_name = os.path.splitext(os.path.basename(video_path))[0]
+
+    if save_keyframes and keyframe_dir is not None:
+        os.makedirs(keyframe_dir, exist_ok=True)
+
+        # clear old images in that folder
+        for old_file in os.listdir(keyframe_dir):
+            if old_file.lower().endswith((".jpg", ".jpeg", ".png")):
+                try:
+                    os.remove(os.path.join(keyframe_dir, old_file))
+                except Exception:
+                    pass
 
     for i, item in enumerate(selected, start=1):
         face = item["face_crop"]
 
-        if save_keyframes:
-            out_dir = os.path.join(keyframe_dir, base_name)
-            os.makedirs(out_dir, exist_ok=True)
-            out_path = os.path.join(out_dir, f"keyframe_{i}.jpg")
+        if face is None or face.size == 0:
+            continue
+
+        if save_keyframes and keyframe_dir is not None:
+            out_path = os.path.join(keyframe_dir, f"frame_{i:02d}.jpg")
             cv2.imwrite(out_path, item["annotated_frame"])
 
         face = cv2.resize(face, (face_size, face_size))
@@ -134,6 +142,9 @@ def video_to_tensor(
         face = face.astype("float32") / 255.0
         face = torch.from_numpy(face).permute(2, 0, 1)
         frames.append(face)
+
+    if len(frames) == 0:
+        return None
 
     while len(frames) < frame_limit:
         frames.append(frames[-1].clone())
@@ -143,14 +154,14 @@ def video_to_tensor(
     return frames
 
 
-def predict_video(model, video_path, frame_limit=10):
+def predict_video(model, video_path, frame_limit=10, debug_dir=None):
     frames = video_to_tensor(
         video_path,
         frame_limit=frame_limit,
         face_size=224,
         scan_frames=40,
         save_keyframes=True,
-        keyframe_dir=r"C:\Users\kudus\Desktop\try out\saved_keyframes_inference_tryout"
+        keyframe_dir=debug_dir
     )
 
     if frames is None:
