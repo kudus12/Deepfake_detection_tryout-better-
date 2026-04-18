@@ -1,55 +1,350 @@
-<!-- templates/index.html -->
-<!-- Week 6: My Flask UI for uploading a video and showing Real/Fake prediction -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deepfake Detection</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepfake Detection Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
-  <div class="container">
-    <h1>Deepfake Detection</h1>
-    <p class="subtitle">Upload a video and my model will predict if it is <b>Real</b> or <b>Fake</b>.</p>
+    <div class="page-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">AI</div>
+                <div>
+                    <h2>Deepfake Detection</h2>
+                    <p>Video Analysis Dashboard</p>
+                </div>
+            </div>
 
-    <!-- Upload Form -->
-    <form class="card" action="/predict" method="POST" enctype="multipart/form-data">
-      <label class="label">Choose a video file (mp4 recommended):</label>
-      <input class="file" type="file" name="file" accept="video/*" required />
+            <div class="sidebar-card">
+                <h3>How it works</h3>
+                <p>
+                    Upload a video and the system will analyse the extracted frames,
+                    classify the content as <strong>REAL</strong> or <strong>FAKE</strong>,
+                    and display the frames used during prediction.
+                </p>
+            </div>
 
-      <button class="btn" type="submit">Predict</button>
-    </form>
+            <div class="sidebar-card">
+                <h3>Supported Files</h3>
+                <p>.mp4, .mov, .avi, .mkv</p>
+            </div>
+        </aside>
 
-    <!-- Error message -->
-    {% if error %}
-      <div class="result error">
-        <h2>Error</h2>
-        <p>{{ error }}</p>
-      </div>
-    {% endif %}
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h1>Deepfake Video Analysis</h1>
+                    <p>Upload a video to begin model inference</p>
+                </div>
+            </header>
 
-    <!-- Prediction result -->
-    {% if prediction %}
-      <div class="result">
-        <h2>Result</h2>
+            <section class="upload-panel">
+                <form action="/predict" method="POST" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+                    <label for="file" class="upload-label">Select Video</label>
+                    <input type="file" name="file" id="file" accept="video/*" required>
+                    <button type="submit" class="analyse-btn" id="analyseBtn">Analyse Video</button>
+                </form>
+            </section>
 
-        <p><b>File:</b> {{ filename }}</p>
-        <p><b>Prediction:</b> <span class="tag">{{ prediction }}</span></p>
-        <p><b>Confidence:</b> {{ confidence }}%</p>
+            <section class="card preview-card hidden" id="previewCard">
+                <div class="card-header">
+                    <h3>Selected Video Preview</h3>
+                    <p>Your chosen video will appear here before analysis</p>
+                </div>
 
-        <hr />
+                <div class="preview-video-wrapper">
+                    <video id="selectedVideoPreview" class="uploaded-video" controls></video>
 
-        <p><b>Real probability:</b> {{ prob_real }}%</p>
-        <p><b>Fake probability:</b> {{ prob_fake }}%</p>
+                    <div class="video-loading-overlay" id="videoLoadingOverlay">
+                        <div class="loading-box">
+                            <div class="loading-spinner"></div>
+                            <h3>Analysing video...</h3>
+                            <p>Please wait while the model processes your file</p>
+                        </div>
+                    </div>
+                </div>
 
-        <p class="note">
-          Note: This is a student project model trained from scratch. Results depend on video quality and content.
-        </p>
-      </div>
-    {% endif %}
-  </div>
+                <div class="preview-file-meta" id="previewMeta">
+                    <div class="mini-meta-box">
+                        <span>File Name</span>
+                        <strong id="previewFileName">-</strong>
+                    </div>
+                    <div class="mini-meta-box">
+                        <span>File Type</span>
+                        <strong id="previewFileType">-</strong>
+                    </div>
+                    <div class="mini-meta-box">
+                        <span>File Size</span>
+                        <strong id="previewFileSize">-</strong>
+                    </div>
+                </div>
+            </section>
+
+            {% if error %}
+            <section class="alert-card error-card">
+                <h3>Error</h3>
+                <p>{{ error }}</p>
+            </section>
+            {% endif %}
+
+            {% if prediction %}
+            <section class="status-strip">
+                <div class="status-badge status-blue">Video Uploaded</div>
+                <div class="status-badge status-cyan">Frames Extracted: {{ frame_count }}</div>
+                <div class="status-badge status-green">Prediction Complete</div>
+                <div class="status-badge status-purple">{{ status_saved }}</div>
+            </section>
+
+            <section class="info-grid">
+                <section class="card file-details-card">
+                    <div class="card-header">
+                        <h3>File Details</h3>
+                        <p>Uploaded video information</p>
+                    </div>
+
+                    <div class="metric-list">
+                        <div class="metric-item">
+                            <span>File Name</span>
+                            <strong>{{ uploaded_filename }}</strong>
+                        </div>
+                        <div class="metric-item">
+                            <span>File Type</span>
+                            <strong>{{ uploaded_filetype }}</strong>
+                        </div>
+                        <div class="metric-item">
+                            <span>File Size</span>
+                            <strong>{{ uploaded_filesize }}</strong>
+                        </div>
+                        <div class="metric-item">
+                            <span>Processing Time</span>
+                            <strong>{{ processing_time }} sec</strong>
+                        </div>
+                        <div class="metric-item">
+                            <span>Selected Frames</span>
+                            <strong>{{ frame_count }}</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card summary-card">
+                    <div class="card-header">
+                        <h3>Result Summary</h3>
+                        <p>Overall interpretation of the output</p>
+                    </div>
+
+                    <div class="summary-topline">
+                        <span class="summary-pill 
+                            {% if prediction == 'REAL' %}summary-pill-real
+                            {% elif prediction == 'FAKE' %}summary-pill-fake
+                            {% else %}summary-pill-neutral{% endif %}">
+                            {{ prediction }}
+                        </span>
+
+                        <span class="summary-confidence 
+                            {% if confidence_level == 'High Confidence' %}confidence-high
+                            {% elif confidence_level == 'Good Confidence' %}confidence-good
+                            {% else %}confidence-low{% endif %}">
+                            {{ confidence_level }}
+                        </span>
+                    </div>
+
+                    <div class="summary-highlight">
+                        {{ result_summary }}
+                    </div>
+
+                    <div class="summary-mini-metrics">
+                        <div class="summary-mini-box">
+                            <span>Confidence</span>
+                            <strong>{{ confidence }}%</strong>
+                        </div>
+                        <div class="summary-mini-box">
+                            <span>Confidence Level</span>
+                            <strong class="
+                                {% if confidence_level == 'High Confidence' %}confidence-high
+                                {% elif confidence_level == 'Good Confidence' %}confidence-good
+                                {% else %}confidence-low{% endif %}">
+                                {{ confidence_level }}
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div class="probability-bars">
+                        <div class="prob-row">
+                            <div class="prob-label-row">
+                                <span>Real Probability</span>
+                                <strong>{{ prob_real }}%</strong>
+                            </div>
+                            <div class="prob-bar">
+                                <div class="prob-fill prob-real" style="width: {{ prob_real }}%;"></div>
+                            </div>
+                        </div>
+
+                        <div class="prob-row">
+                            <div class="prob-label-row">
+                                <span>Fake Probability</span>
+                                <strong>{{ prob_fake }}%</strong>
+                            </div>
+                            <div class="prob-bar">
+                                <div class="prob-fill prob-fake" style="width: {{ prob_fake }}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <section class="single-video-grid">
+                <div class="card video-card wide-video-card">
+                    <div class="card-header">
+                        <h3>Uploaded Video</h3>
+                        <p>Processed video used for the final prediction</p>
+                    </div>
+                    {% if uploaded_video %}
+                    <video controls class="uploaded-video">
+                        <source src="{{ url_for('uploaded_file', filename=uploaded_video) }}">
+                        Your browser does not support the video tag.
+                    </video>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="card explanation-card">
+                <div class="card-header">
+                    <h3>Prediction Feedback</h3>
+                    <p>Professional interpretation of the model result</p>
+                </div>
+
+                <div class="explanation-text">
+                    {{ prediction_feedback }}
+                </div>
+            </section>
+
+            <section class="card disclaimer-card">
+                <div class="card-header">
+                    <h3>Professional Note</h3>
+                </div>
+                <div class="disclaimer-text">
+                    This system provides an automated prediction based on learned visual patterns in the selected frames.
+                    The output should be treated as a supportive analysis result rather than final proof of authenticity.
+                </div>
+            </section>
+
+            {% if frame_files %}
+            <section class="card frames-card">
+                <div class="card-header">
+                    <div>
+                        <h3>Model Input Frames</h3>
+                        <p>The extracted frames used during inference</p>
+                    </div>
+                </div>
+
+                <div class="frames-grid">
+                    {% for frame in frame_files %}
+                    <div class="frame-tile">
+                        <img
+                            src="{{ url_for('debug_file', filename=debug_folder + '/' + frame) }}"
+                            alt="Frame {{ loop.index }}"
+                            class="zoomable-frame"
+                            onclick="openImageModal(this.src, 'Top Selected Frame {{ loop.index }}')"
+                        >
+                        <span>Top Selected Frame {{ loop.index }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+            {% endif %}
+
+            <footer class="site-footer">
+                <div class="footer-content">
+                    <p>Deepfake Detection Dashboard</p>
+                    <p class="footer-subtext">Student Project Interface • Video Analysis • Frame Inspection</p>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <div id="imageModal" class="image-modal" onclick="closeImageModal()">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content-wrapper">
+            <img id="modalImage" class="modal-image" src="" alt="Zoomed frame">
+            <div id="modalCaption" class="modal-caption"></div>
+        </div>
+        <button class="modal-close" onclick="closeImageModal(event)">×</button>
+    </div>
+
+    <script>
+        function openImageModal(imageSrc, captionText) {
+            const modal = document.getElementById("imageModal");
+            const modalImg = document.getElementById("modalImage");
+            const modalCaption = document.getElementById("modalCaption");
+
+            modalImg.src = imageSrc;
+            modalCaption.textContent = captionText;
+            modal.classList.add("show");
+            document.body.classList.add("modal-open");
+        }
+
+        function closeImageModal(event) {
+            if (event) {
+                event.stopPropagation();
+            }
+
+            const modal = document.getElementById("imageModal");
+            modal.classList.remove("show");
+            document.body.classList.remove("modal-open");
+        }
+
+        document.addEventListener("keydown", function(event) {
+            if (event.key === "Escape") {
+                closeImageModal();
+            }
+        });
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + " B";
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+            return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+        }
+
+        const fileInput = document.getElementById("file");
+        const previewCard = document.getElementById("previewCard");
+        const previewVideo = document.getElementById("selectedVideoPreview");
+        const uploadForm = document.getElementById("uploadForm");
+        const loadingOverlay = document.getElementById("videoLoadingOverlay");
+        const analyseBtn = document.getElementById("analyseBtn");
+
+        const previewFileName = document.getElementById("previewFileName");
+        const previewFileType = document.getElementById("previewFileType");
+        const previewFileSize = document.getElementById("previewFileSize");
+
+        fileInput.addEventListener("change", function () {
+            const file = this.files && this.files[0];
+            if (!file) return;
+
+            const objectURL = URL.createObjectURL(file);
+            previewVideo.src = objectURL;
+            previewCard.classList.remove("hidden");
+            loadingOverlay.classList.remove("show");
+            analyseBtn.disabled = false;
+            analyseBtn.textContent = "Analyse Video";
+
+            previewFileName.textContent = file.name;
+            previewFileType.textContent = file.name.split('.').pop().toUpperCase();
+            previewFileSize.textContent = formatBytes(file.size);
+        });
+
+        uploadForm.addEventListener("submit", function () {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+
+            previewCard.classList.remove("hidden");
+            loadingOverlay.classList.add("show");
+            analyseBtn.disabled = true;
+            analyseBtn.textContent = "Analysing...";
+        });
+    </script>
 </body>
 </html>
