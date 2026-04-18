@@ -177,7 +177,7 @@
                                 <strong>{{ prob_real }}%</strong>
                             </div>
                             <div class="prob-bar">
-                                <div class="prob-fill prob-real" style="width: {{ prob_real }}%;"></div>
+                                <div class="prob-fill prob-real" data-width="{{ prob_real }}"></div>
                             </div>
                         </div>
 
@@ -187,7 +187,7 @@
                                 <strong>{{ prob_fake }}%</strong>
                             </div>
                             <div class="prob-bar">
-                                <div class="prob-fill prob-fake" style="width: {{ prob_fake }}%;"></div>
+                                <div class="prob-fill prob-fake" data-width="{{ prob_fake }}"></div>
                             </div>
                         </div>
                     </div>
@@ -246,7 +246,8 @@
                             src="{{ url_for('debug_file', filename=debug_folder + '/' + frame) }}"
                             alt="Frame {{ loop.index }}"
                             class="zoomable-frame"
-                            onclick="openImageModal(this.src, 'Top Selected Frame {{ loop.index }}')"
+                            data-index="{{ loop.index0 }}"
+                            data-caption="Top Selected Frame {{ loop.index }}"
                         >
                         <span>Top Selected Frame {{ loop.index }}</span>
                     </div>
@@ -265,42 +266,64 @@
         </main>
     </div>
 
-    <div id="imageModal" class="image-modal" onclick="closeImageModal()">
+    <div id="imageModal" class="image-modal">
         <div class="modal-backdrop"></div>
+
+        <button class="modal-nav modal-prev" id="modalPrevBtn" type="button">‹</button>
+
         <div class="modal-content-wrapper">
             <img id="modalImage" class="modal-image" src="" alt="Zoomed frame">
             <div id="modalCaption" class="modal-caption"></div>
         </div>
-        <button class="modal-close" onclick="closeImageModal(event)">×</button>
+
+        <button class="modal-nav modal-next" id="modalNextBtn" type="button">›</button>
+        <button class="modal-close" id="modalCloseBtn" type="button">×</button>
     </div>
 
     <script>
-        function openImageModal(imageSrc, captionText) {
-            const modal = document.getElementById("imageModal");
+        let currentModalIndex = 0;
+        let modalFrames = [];
+
+        function collectModalFrames() {
+            modalFrames = Array.from(document.querySelectorAll(".zoomable-frame")).map((img) => ({
+                src: img.src,
+                caption: img.dataset.caption || img.alt || "Frame"
+            }));
+        }
+
+        function renderModalImage() {
+            if (!modalFrames.length) return;
+
+            if (currentModalIndex < 0) currentModalIndex = modalFrames.length - 1;
+            if (currentModalIndex >= modalFrames.length) currentModalIndex = 0;
+
             const modalImg = document.getElementById("modalImage");
             const modalCaption = document.getElementById("modalCaption");
 
-            modalImg.src = imageSrc;
-            modalCaption.textContent = captionText;
+            modalImg.src = modalFrames[currentModalIndex].src;
+            modalCaption.textContent = modalFrames[currentModalIndex].caption;
+        }
+
+        function openImageModal(index) {
+            collectModalFrames();
+            currentModalIndex = index;
+
+            const modal = document.getElementById("imageModal");
+            renderModalImage();
             modal.classList.add("show");
             document.body.classList.add("modal-open");
         }
 
-        function closeImageModal(event) {
-            if (event) {
-                event.stopPropagation();
-            }
+        function changeModalImage(direction) {
+            currentModalIndex += direction;
+            renderModalImage();
+        }
 
+        function closeImageModal() {
             const modal = document.getElementById("imageModal");
             modal.classList.remove("show");
             document.body.classList.remove("modal-open");
         }
-
-        document.addEventListener("keydown", function(event) {
-            if (event.key === "Escape") {
-                closeImageModal();
-            }
-        });
 
         function formatBytes(bytes) {
             if (bytes < 1024) return bytes + " B";
@@ -309,41 +332,95 @@
             return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
         }
 
-        const fileInput = document.getElementById("file");
-        const previewCard = document.getElementById("previewCard");
-        const previewVideo = document.getElementById("selectedVideoPreview");
-        const uploadForm = document.getElementById("uploadForm");
-        const loadingOverlay = document.getElementById("videoLoadingOverlay");
-        const analyseBtn = document.getElementById("analyseBtn");
+        document.addEventListener("DOMContentLoaded", function () {
+            const probabilityFills = document.querySelectorAll(".prob-fill");
+            probabilityFills.forEach((bar) => {
+                const widthValue = bar.dataset.width || "0";
+                bar.style.width = widthValue + "%";
+            });
 
-        const previewFileName = document.getElementById("previewFileName");
-        const previewFileType = document.getElementById("previewFileType");
-        const previewFileSize = document.getElementById("previewFileSize");
+            const frameImages = document.querySelectorAll(".zoomable-frame");
+            frameImages.forEach((img) => {
+                img.addEventListener("click", function () {
+                    const index = Number(this.dataset.index || 0);
+                    openImageModal(index);
+                });
+            });
 
-        fileInput.addEventListener("change", function () {
-            const file = this.files && this.files[0];
-            if (!file) return;
+            const modal = document.getElementById("imageModal");
+            const modalBackdrop = document.querySelector(".modal-backdrop");
+            const modalPrevBtn = document.getElementById("modalPrevBtn");
+            const modalNextBtn = document.getElementById("modalNextBtn");
+            const modalCloseBtn = document.getElementById("modalCloseBtn");
+            const modalContentWrapper = document.querySelector(".modal-content-wrapper");
 
-            const objectURL = URL.createObjectURL(file);
-            previewVideo.src = objectURL;
-            previewCard.classList.remove("hidden");
-            loadingOverlay.classList.remove("show");
-            analyseBtn.disabled = false;
-            analyseBtn.textContent = "Analyse Video";
+            if (modalBackdrop) modalBackdrop.addEventListener("click", closeImageModal);
+            if (modalCloseBtn) modalCloseBtn.addEventListener("click", closeImageModal);
+            if (modalPrevBtn) modalPrevBtn.addEventListener("click", function (event) {
+                event.stopPropagation();
+                changeModalImage(-1);
+            });
+            if (modalNextBtn) modalNextBtn.addEventListener("click", function (event) {
+                event.stopPropagation();
+                changeModalImage(1);
+            });
+            if (modalContentWrapper) {
+                modalContentWrapper.addEventListener("click", function (event) {
+                    event.stopPropagation();
+                });
+            }
 
-            previewFileName.textContent = file.name;
-            previewFileType.textContent = file.name.split('.').pop().toUpperCase();
-            previewFileSize.textContent = formatBytes(file.size);
-        });
+            document.addEventListener("keydown", function(event) {
+                if (event.key === "Escape") {
+                    closeImageModal();
+                }
 
-        uploadForm.addEventListener("submit", function () {
-            const file = fileInput.files && fileInput.files[0];
-            if (!file) return;
+                if (modal && modal.classList.contains("show")) {
+                    if (event.key === "ArrowLeft") changeModalImage(-1);
+                    if (event.key === "ArrowRight") changeModalImage(1);
+                }
+            });
 
-            previewCard.classList.remove("hidden");
-            loadingOverlay.classList.add("show");
-            analyseBtn.disabled = true;
-            analyseBtn.textContent = "Analysing...";
+            const fileInput = document.getElementById("file");
+            const previewCard = document.getElementById("previewCard");
+            const previewVideo = document.getElementById("selectedVideoPreview");
+            const uploadForm = document.getElementById("uploadForm");
+            const loadingOverlay = document.getElementById("videoLoadingOverlay");
+            const analyseBtn = document.getElementById("analyseBtn");
+
+            const previewFileName = document.getElementById("previewFileName");
+            const previewFileType = document.getElementById("previewFileType");
+            const previewFileSize = document.getElementById("previewFileSize");
+
+            if (fileInput) {
+                fileInput.addEventListener("change", function () {
+                    const file = this.files && this.files[0];
+                    if (!file) return;
+
+                    const objectURL = URL.createObjectURL(file);
+                    previewVideo.src = objectURL;
+                    previewCard.classList.remove("hidden");
+                    loadingOverlay.classList.remove("show");
+                    analyseBtn.disabled = false;
+                    analyseBtn.textContent = "Analyse Video";
+
+                    previewFileName.textContent = file.name;
+                    previewFileType.textContent = file.name.split(".").pop().toUpperCase();
+                    previewFileSize.textContent = formatBytes(file.size);
+                });
+            }
+
+            if (uploadForm) {
+                uploadForm.addEventListener("submit", function () {
+                    const file = fileInput.files && fileInput.files[0];
+                    if (!file) return;
+
+                    previewCard.classList.remove("hidden");
+                    loadingOverlay.classList.add("show");
+                    analyseBtn.disabled = true;
+                    analyseBtn.textContent = "Analysing...";
+                });
+            }
         });
     </script>
 </body>
